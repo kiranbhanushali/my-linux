@@ -23,7 +23,7 @@ import XMonad.Layout.BinarySpacePartition as BSP
 import XMonad.Layout.NoBorders
 import XMonad.Layout.Tabbed
 import XMonad.Layout.Circle
-
+import XMonad.Hooks.EwmhDesktops as EW
 import XMonad.Layout.Grid
 import XMonad.Layout.ThreeColumns
 import XMonad.Layout.Spacing
@@ -56,6 +56,7 @@ import XMonad.Util.EZConfig (additionalKeysP)
 import Graphics.X11.ExtraTypes.XF86
 import qualified XMonad.StackSet as W
 import XMonad.Actions.Promote
+import XMonad.Actions.ConditionalKeys
 -- Data
 import Data.Char (isSpace)
 import Data.Monoid
@@ -255,27 +256,29 @@ searchList = [ ("a", archwiki)
 ------------------------------------------------------------------------
 -- Allows to have several floating scratchpads running different applications.
 -- Import Util.NamedScratchpad.  Bind a key to namedScratchpadSpawnAction.
-myScratchPads :: [NamedScratchpad]
-myScratchPads = [ NS "terminal" spawnTerm findTerm manageTerm
-                , NS "mocp" spawnMocp findMocp manageMocp
-                ]
-  where
-    spawnTerm  = myTerminal ++ " -n scratchpad"
-    findTerm   = resource =? "scratchpad"
-    manageTerm = customFloating $ W.RationalRect l t w h
-               where
-                 h = 0.9
-                 w = 0.9
-                 t = 0.95 -h
-                 l = 0.95 -w
-    spawnMocp  = myTerminal ++ " -n mocp 'mocp'"
-    findMocp   = resource =? "mocp"
-    manageMocp = customFloating $ W.RationalRect l t w h
-               where
-                 h = 0.9
-                 w = 0.9
-                 t = 0.95 -h
-                 l = 0.95 -w
+-- scratchPads
+scratchpads :: [NamedScratchpad]
+scratchpads = [
+    NS "term" "konsole -name scratchpad" (resource =? "scratchpad")
+       (customFloating $ W.RationalRect 0.1 0.1 0.8 0.8),
+     -- NS "chrome" "google-chrome-stable  --new-window" (resource =? "scratchpad")
+       -- (customFloating $ W.RationalRect 0.01 0.10 0.9 0.9)
+    NS "chrome" "google-chrome-stable --new-window" (resource =? "google-chrome")  nonFloating,
+    NS "settings" "systemsettings5" (className =? "systemsettings")  nonFloating
+    
+  ]
+-- myScratchPads :: [NamedScratchpad]
+-- myScratchPads = [ NS "terminal" spawnTerm findTerm manageTerm
+--                 ]
+--   where
+--     spawnTerm  = myTerminal ++ " -n scratchpad"
+--     findTerm   = resource =? "scratchpad"
+--     manageTerm = customFloating $ W.RationalRect l t w h
+--                where
+--                  h = 0.9
+--                  w = 0.9
+--                  t = 0.95 -h
+--                  l = 0.95 -w
 
 
 ------------------------------------------------------------------------
@@ -294,7 +297,7 @@ myWorkspaces :: [String]
 myWorkspaces = clickable . map xmobarEscape
                $ ["dev", "www", "sys", "doc", "vbox", "chat", "mus", "vid", "gfx"]
   where
-        clickable l = [ "  <action=xdotool key super+" ++ show (n) ++ " >" ++ ws ++ "</action>   " |
+        clickable l = [ "<action=xdotool key super+" ++ show (n) ++ " >" ++ ws ++ "</action> " |
                       (i,ws) <- zip [1..9] l,
                       let n = i ]
 
@@ -314,17 +317,14 @@ myWorkspaces = clickable . map xmobarEscape
 --
 myManageHook = composeAll
     [
-      className =? "google-chrome"                --> doShift " 2:www "
-    , resource  =? "desktop_window"               --> doIgnore
-    , className =? "Gimp"                         --> doCenterFloat
+     className =? "Gimp"                         --> doCenterFloat
     , className =? "Mate-power-preferences"       --> doCenterFloat
     , className =? "Xfce4-power-manager-settings" --> doCenterFloat
     , className =? "stalonetray"                  --> doIgnore
+    -- , className =? "Google-chrome"                  --> doFullFloat
     , isFullscreen                                --> (doF W.focusDown <+> doFullFloat)
      , isFullscreen                             --> doFullFloat
-    ] <+> namedScratchpadManageHook myScratchPads
-
-
+    ] <+> namedScratchpadManageHook scratchpads
 
 ------------------------------------------------------------------------
 -- Layouts
@@ -362,26 +362,18 @@ magnify  = renamed [Replace "magnify"]
 
 floats   = renamed [Replace "floats"]
            $ limitWindows 20 simplestFloat
-monocle  = renamed [Replace "monocle"]
-           $ limitWindows 20 Full
+-- monocle  = renamed [Replace "monocle"]
+--            $ limitWindows 20 Full
 
 layouts      = avoidStruts (
-                (
-                    renamed [CutWordsLeft 1]
-                  $ addTopBar
-                  $ windowNavigation
-                  $ renamed [Replace "BSP"]
-                  $ addTabs shrinkText myTabTheme
-                  $ subLayout [] Simplest
-                  $ myGaps
-                  $ addSpace (BSP.emptyBSP)
-                )
+                 Tall 1 (3/100) (1/2)
                 ||| tab
-                ||| Circle
-                ||| Grid
-                ||| monocle
+                -- ||| Circle
+                -- ||| Grid
+                -- ||| monocle
                 ||| floats
                 ||| magnify
+                ||| Full
                )
 
 myLayout    = smartBorders
@@ -524,28 +516,30 @@ myKeys =
         , ("M-<Return>", spawn myTerminal)
         -- Run Prompt
         , ("M-S-<Return>", shellPrompt dtXPConfig)   -- Shell Prompt
-
+    -- terminal
+     , ("M-\\" ,  spawn myBrowser) -- browser
  -- Windows
         , ("M-<Backspace>", kill1)                           -- Kill the currently focused client
         , ("M-S-<Backspace>", killAll)                         -- Kill all windows on current workspace
 
--- Floating windows
-        , ("M-f", sendMessage (T.Toggle "floats"))       -- Toggles my 'floats' layout
-        , ("M-<Delete>", withFocused $ windows . W.sink) -- Push floating window back to tile
-        , ("M-S-<Delete>", sinkAll)                      -- Push ALL floating windows to tile
-
+-- -- Floating windows
+--         , ("M-f", sendMessage (T.Toggle "floats"))       -- Toggles my 'floats' layout
+--         , ("M-<Delete>", withFocused $ windows . W.sink) -- Push floating window back to tile
+--         , ("M-S-<Delete>", sinkAll)                      -- Push ALL floating windows to tile
 
 --- launcher
         , ("M-p",  spawn myLauncher)
 -- Scratchpads
-        , ("M-C-<Return>", namedScratchpadAction myScratchPads "terminal")
-        , ("M-C-c", namedScratchpadAction myScratchPads "mocp")
-
+        -- , ("M-C-<Return>", namedScratchpadAction myScratchPads "terminal")
+-- scratchPad term
+        , ("C-0", namedScratchpadAction scratchpads "term")
+        , ("C-9", namedScratchpadAction scratchpads "chrome")
+        , ("C-8", namedScratchpadAction scratchpads "settings")
 -- Windows navigation
         , ("M-m", windows W.focusMaster)     -- Move focus to the master window
         , ("M-j", windows W.focusDown)       -- Move focus to the next window
         , ("M-k", windows W.focusUp)         -- Move focus to the prev window
-        --, ("M-S-m", windows W.swapMaster)    -- Swap the focused window and the master window
+        , ("M-S-m", windows W.swapMaster)    -- Swap the focused window and the master window
         , ("M-S-j", windows W.swapDown)      -- Swap focused window with next window
         , ("M-S-k", windows W.swapUp)        -- Swap focused window with prev window
         , ("M-;", promote)         -- Moves focused window to master, others maintain order
@@ -553,7 +547,6 @@ myKeys =
         , ("M1-C-<Tab>", rotAllDown)         -- Rotate all the windows in the current stack
         , ("M-S-d", windows copyToAll)
         , ("M-C-d", killAllOtherCopies)
-
         -- Layouts
         , ("M-<Tab>", sendMessage NextLayout)                -- Switch to next layout
         , ("M-C-M1-<Up>", sendMessage Arrange)
@@ -572,11 +565,13 @@ myKeys =
         , ("M-C-k", sendMessage MirrorExpand)               -- Exoand vert window width
 
     -- Workspaces
-        , ("M-.", nextScreen)  -- Switch focus to next monitor
-        , ("M-,", prevScreen)  -- Switch focus to prev monitor
-        , ("M-S-<KP_Add>", shiftTo Next nonNSP >> moveTo Next nonNSP)       -- Shifts focused window to next ws
-        , ("M-S-<KP_Subtract>", shiftTo Prev nonNSP >> moveTo Prev nonNSP)  -- Shifts focused window to prev ws
+        -- , ("M-.", nextScreen)  -- Swich focus to next monitor
+        -- , ("M-,", prevScreen)  -- Switch focus to prev monitor
+        -- , ("M-S-<KP_Add>", shiftTo Next nonNSP >> moveTo Next nonNSP)       -- Shifts focused window to next ws
+        -- , ("M-S-<KP_Subtract>", shiftTo Prev nonNSP >> moveTo Prev nonNSP)  -- Shifts focused window to prev ws
 
+        , ("M-.", shiftTo Next nonNSP >> moveTo Next nonNSP)       -- Shifts focused window to next ws
+        , ("M-,", shiftTo Prev nonNSP >> moveTo Prev nonNSP)  -- Shifts focused window to prev ws
 
         ]
 -- Appending search engine prompts to keybindings list.
@@ -592,188 +587,175 @@ myKeys =
                  nonEmptyNonNSP  = WSIs (return (\ws -> isJust (W.stack ws) && W.tag ws /= "nsp"))
 
 
-myKeys1 conf@(XConfig {XMonad.modMask = modMask}) = M.fromList $
-  ----------------------------------------------------------------------
-  -- Custom key bindings
-  --
-
-  -- Start a terminal.  Terminal to start is specified by myTerminal variable.
-  [ ((modMask .|. shiftMask, xK_Return),
-     spawn $ XMonad.terminal conf)
-
-
-  -- Spawn the launcher using command specified by myLauncher.
-  -- Use this to launch programs without a key binding.
-  , ((modMask, xK_p),
-     spawn myLauncher)
 
 
 
-  -- Toggle current focus window to fullscreen
-  , ((modMask, xK_f), sendMessage $ MT.Toggle FULL)
 
-  -- Mute volume.
-  , ((0, xF86XK_AudioMute),
-     spawn "amixer -q set Master toggle")
+--  -- Toggle current focus window to fullscreen
+--  , ((modMask, xK_f), sendMessage $ MT.Toggle FULL)
 
-  -- Decrease volume.
-  , ((0, xF86XK_AudioLowerVolume),
-     spawn "amixer -q set Master 5%-")
+--  -- Mute volume.
+--  , ((0, xF86XK_AudioMute),
+--     spawn "amixer -q set Master toggle")
 
-  -- Increase volume.
-  , ((0, xF86XK_AudioRaiseVolume),
-     spawn "amixer -q set Master 5%+")
+--  -- Decrease volume.
+--  , ((0, xF86XK_AudioLowerVolume),
+--     spawn "amixer -q set Master 5%-")
 
-  -- Audio previous.
-  , ((0, 0x1008FF16),
-     spawn "")
+--  -- Increase volume.
+--  , ((0, xF86XK_AudioRaiseVolume),
+--     spawn "amixer -q set Master 5%+")
 
-  -- Play/pause.
-  , ((0, 0x1008FF14),
-     spawn "")
+--  -- Audio previous.
+--  , ((0, 0x1008FF16),
+--     spawn "")
 
-  -- Audio next.
-  , ((0, 0x1008FF17),
-     spawn "")
+--  -- Play/pause.
+--  , ((0, 0x1008FF14),
+--     spawn "")
 
-  -- Eject CD tray.
-  , ((0, 0x1008FF2C),
-     spawn "eject -T")
+--  -- Audio next.
+--  , ((0, 0x1008FF17),
+--     spawn "")
 
-  --------------------------------------------------------------------
-  -- "Standard" xmonad key bindings
-  --
+--  -- Eject CD tray.
+--  , ((0, 0x1008FF2C),
+--     spawn "eject -T")
 
-  -- Close focused window.
-  , ((modMask .|. shiftMask, xK_c),
-     kill)
+--  --------------------------------------------------------------------
+--  -- "Standard" xmonad key bindings
+--  --
 
-  -- Cycle through the available layout algorithms.
-  , ((modMask, xK_space),
-     sendMessage NextLayout)
+--  -- Close focused window.
+--  , ((modMask .|. shiftMask, xK_c),
+--     kill)
 
-  --  Reset the layouts on the current workspace to default.
-  , ((modMask .|. shiftMask, xK_space),
-     setLayout $ XMonad.layoutHook conf)
+--  -- Cycle through the available layout algorithms.
+--  , ((modMask, xK_space),
+--     sendMessage NextLayout)
 
-  -- Resize viewed windows to the correct size.
-  , ((modMask, xK_n),
-     refresh)
+--  --  Reset the layouts on the current workspace to default.
+--  , ((modMask .|. shiftMask, xK_space),
+--     setLayout $ XMonad.layoutHook conf)
 
-  -- Move focus to the next window.
-  , ((modMask, xK_j),
-     windows W.focusDown)
+--  -- Resize viewed windows to the correct size.
+--  , ((modMask, xK_n),
+--     refresh)
 
-  -- Move focus to the previous window.
-  , ((modMask, xK_k),
-     windows W.focusUp  )
+--  -- Move focus to the next window.
+--  , ((modMask, xK_j),
+--     windows W.focusDown)
 
-  -- Move focus to the master window.
-  , ((modMask, xK_m),
-     windows W.focusMaster  )
+--  -- Move focus to the previous window.
+--  , ((modMask, xK_k),
+--     windows W.focusUp  )
 
-  -- Swap the focused window and the master window.
-  , ((modMask, xK_Return),
-   windows W.swapMaster)
+--  -- Move focus to the master window.
+--  , ((modMask, xK_m),
+--     windows W.focusMaster  )
 
-  -- Swap the focused window with the next window.
-  , ((modMask .|. shiftMask, xK_j),
-     windows W.swapDown  )
+--  -- Swap the focused window and the master window.
+--  , ((modMask, xK_Return),
+--   windows W.swapMaster)
 
-  -- Swap the focused window with the previous window.
-  , ((modMask .|. shiftMask, xK_k),
-     windows W.swapUp    )
+--  -- Swap the focused window with the next window.
+--  , ((modMask .|. shiftMask, xK_j),
+--     windows W.swapDown  )
 
-  -- Shrink the master area.
-  , ((modMask, xK_h),
-     sendMessage Shrink)
+--  -- Swap the focused window with the previous window.
+--  , ((modMask .|. shiftMask, xK_k),
+--     windows W.swapUp    )
 
-  -- Expand the master area.
-  , ((modMask, xK_l),
-     sendMessage Expand)
+--  -- Shrink the master area.
+--  , ((modMask, xK_h),
+--     sendMessage Shrink)
 
-  -- Push window back into tiling.
-  , ((modMask, xK_t),
-     withFocused $ windows . W.sink)
+--  -- Expand the master area.
+--  , ((modMask, xK_l),
+--     sendMessage Expand)
 
-  -- Increment the number of windows in the master area.
-  , ((modMask, xK_comma),
-     sendMessage (IncMasterN 1))
+--  -- Push window back into tiling.
+--  , ((modMask, xK_t),
+--     withFocused $ windows . W.sink)
 
-  -- Decrement the number of windows in the master area.
-  , ((modMask, xK_period),
-     sendMessage (IncMasterN (-1)))
+--  -- Increment the number of windows in the master area.
+--  , ((modMask, xK_comma),
+--     sendMessage (IncMasterN 1))
+
+--  -- Decrement the number of windows in the master area.
+--  , ((modMask, xK_period),
+--     sendMessage (IncMasterN (-1)))
 
 
 
    
-  -- Toggle the status bar gap.
-  -- TODO: update this binding with avoidStruts, ((modMask, xK_b),
+--  -- Toggle the status bar gap.
+--  -- TODO: update this binding with avoidStruts, ((modMask, xK_b),
 
-  -- Quit xmonad.
-  , ((modMask .|. shiftMask, xK_q),
-     io (exitWith ExitSuccess))
+--  -- Quit xmonad.
+--  , ((modMask .|. shiftMask, xK_q),
+--     io (exitWith ExitSuccess))
 
-  -- Restart xmonad.
-  , ((modMask, xK_q),
-     restart "xmonad" True)
-  ]
-  ++
+--  -- Restart xmonad.
+--  , ((modMask, xK_q),
+--     restart "xmonad" True)
+--  ]
+--  ++
 
-  -- mod-[1..9], Switch to workspace N
-  -- mod-shift-[1..9], Move client to workspace N
-  [((m .|. modMask, k), windows $ f i)
-      | (i, k) <- zip (XMonad.workspaces conf) [xK_1 .. xK_9]
-      , (f, m) <- [(W.greedyView, 0), (W.shift, shiftMask)]]
-  ++
+--  -- mod-[1..9], Switch to workspace N
+--  -- mod-shift-[1..9], Move client to workspace N
+--  [((m .|. modMask, k), windows $ f i)
+--      | (i, k) <- zip (XMonad.workspaces conf) [xK_1 .. xK_9]
+--      , (f, m) <- [(W.greedyView, 0), (W.shift, shiftMask)]]
+--  ++
 
-  -- mod-{w,e,r}, Switch to physical/Xinerama screens 1, 2, or 3
-  -- mod-shift-{w,e,r}, Move client to screen 1, 2, or 3
-  [((m .|. modMask, key), screenWorkspace sc >>= flip whenJust (windows . f))
-      | (key, sc) <- zip [xK_w, xK_e, xK_r] [0..]
-      , (f, m) <- [(W.view, 0), (W.shift, shiftMask)]]
+--  -- mod-{w,e,r}, Switch to physical/Xinerama screens 1, 2, or 3
+--  -- mod-shift-{w,e,r}, Move client to screen 1, 2, or 3
+--  [((m .|. modMask, key), screenWorkspace sc >>= flip whenJust (windows . f))
+--      | (key, sc) <- zip [xK_w, xK_e, xK_r] [0..]
+--      , (f, m) <- [(W.view, 0), (W.shift, shiftMask)]]
 
 
-  ++
-  -- Bindings for manage sub tabs in layouts please checkout the link below for reference
-  -- https://hackage.haskell.org/package/xmonad-contrib-0.13/docs/XMonad-Layout-SubLayouts.html
-  [
-    -- Tab current focused window with the window to the left
-    ((modMask .|. controlMask, xK_h), sendMessage $ pullGroup L)
-    -- Tab current focused window with the window to the right
-  , ((modMask .|. controlMask, xK_l), sendMessage $ pullGroup R)
-    -- Tab current focused window with the window above
-  , ((modMask .|. controlMask, xK_k), sendMessage $ pullGroup U)
-    -- Tab current focused window with the window below
-  , ((modMask .|. controlMask, xK_j), sendMessage $ pullGroup D)
+--  ++
+--  -- Bindings for manage sub tabs in layouts please checkout the link below for reference
+--  -- https://hackage.haskell.org/package/xmonad-contrib-0.13/docs/XMonad-Layout-SubLayouts.html
+--  [
+--    -- Tab current focused window with the window to the left
+--    ((modMask .|. controlMask, xK_h), sendMessage $ pullGroup L)
+--    -- Tab current focused window with the window to the right
+--  , ((modMask .|. controlMask, xK_l), sendMessage $ pullGroup R)
+--    -- Tab current focused window with the window above
+--  , ((modMask .|. controlMask, xK_k), sendMessage $ pullGroup U)
+--    -- Tab current focused window with the window below
+--  , ((modMask .|. controlMask, xK_j), sendMessage $ pullGroup D)
 
-  -- Tab all windows in the current workspace with current window as the focus
-  , ((modMask .|. controlMask, xK_m), withFocused (sendMessage . MergeAll))
-  -- Group the current tabbed windows
-  , ((modMask .|. controlMask, xK_u), withFocused (sendMessage . UnMerge))
+--  -- Tab all windows in the current workspace with current window as the focus
+--  , ((modMask .|. controlMask, xK_m), withFocused (sendMessage . MergeAll))
+--  -- Group the current tabbed windows
+--  , ((modMask .|. controlMask, xK_u), withFocused (sendMessage . UnMerge))
 
-  -- Toggle through tabes from the right
-  , ((modMask, xK_Tab), onGroup W.focusDown')
-  ]
+--  -- Toggle through tabes from the right
+--  , ((modMask, xK_Tab), onGroup W.focusDown')
+--  ]
 
-  ++
-  -- Some bindings for BinarySpacePartition
-  -- https://github.com/benweitzman/BinarySpacePartition
-  [
-    ((modMask .|. controlMask,               xK_Right ), sendMessage $ ExpandTowards R)
-  , ((modMask .|. controlMask .|. shiftMask, xK_Right ), sendMessage $ ShrinkFrom R)
-  , ((modMask .|. controlMask,               xK_Left  ), sendMessage $ ExpandTowards L)
-  , ((modMask .|. controlMask .|. shiftMask, xK_Left  ), sendMessage $ ShrinkFrom L)
-  , ((modMask .|. controlMask,               xK_Down  ), sendMessage $ ExpandTowards D)
-  , ((modMask .|. controlMask .|. shiftMask, xK_Down  ), sendMessage $ ShrinkFrom D)
-  , ((modMask .|. controlMask,               xK_Up    ), sendMessage $ ExpandTowards U)
-  , ((modMask .|. controlMask .|. shiftMask, xK_Up    ), sendMessage $ ShrinkFrom U)
-  , ((modMask,                               xK_r     ), sendMessage BSP.Rotate)
-  , ((modMask,                               xK_s     ), sendMessage BSP.Swap)
-  -- , ((modMask,                               xK_n     ), sendMessage BSP.FocusParent)
-  -- , ((modMask .|. controlMask,               xK_n     ), sendMessage BSP.SelectNode)
-  -- , ((modMask .|. shiftMask,                 xK_n     ), sendMessage BSP.MoveNode)
-  ]
+--  ++
+--  -- Some bindings for BinarySpacePartition
+--  -- https://github.com/benweitzman/BinarySpacePartition
+--  [
+--    ((modMask .|. controlMask,               xK_Right ), sendMessage $ ExpandTowards R)
+--  , ((modMask .|. controlMask .|. shiftMask, xK_Right ), sendMessage $ ShrinkFrom R)
+--  , ((modMask .|. controlMask,               xK_Left  ), sendMessage $ ExpandTowards L)
+--  , ((modMask .|. controlMask .|. shiftMask, xK_Left  ), sendMessage $ ShrinkFrom L)
+--  , ((modMask .|. controlMask,               xK_Down  ), sendMessage $ ExpandTowards D)
+--  , ((modMask .|. controlMask .|. shiftMask, xK_Down  ), sendMessage $ ShrinkFrom D)
+--  , ((modMask .|. controlMask,               xK_Up    ), sendMessage $ ExpandTowards U)
+--  , ((modMask .|. controlMask .|. shiftMask, xK_Up    ), sendMessage $ ShrinkFrom U)
+--  , ((modMask,                               xK_r     ), sendMessage BSP.Rotate)
+--  , ((modMask,                               xK_s     ), sendMessage BSP.Swap)
+--  -- , ((modMask,                               xK_n     ), sendMessage BSP.FocusParent)
+--  -- , ((modMask .|. controlMask,               xK_n     ), sendMessage BSP.SelectNode)
+--  -- , ((modMask .|. shiftMask,                 xK_n     ), sendMessage BSP.MoveNode)
+--  ]
 
 
 
@@ -898,8 +880,8 @@ defaults = def {
 
     -- hooks, layouts
     layoutHook         = myLayout,
-    -- handleEventHook    = E.fullscreenEventHook,
-    handleEventHook    = fullscreenEventHook,
+    handleEventHook    = EW.fullscreenEventHook,
+    -- handleEventHook    = fullscreenEventHook,
     manageHook         = manageDocks <+> myManageHook,
     startupHook        = myStartupHook
 } `additionalKeysP` myKeys

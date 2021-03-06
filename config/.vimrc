@@ -73,6 +73,7 @@ Plug 'patstockwell/vim-monokai-tasty'
 " Plug 'erichdongubler/vim-sublime-monokai'
 " Plug 'flazz/vim-colorschemes'          " Bunch of color schemes
 
+Plug 'rhysd/vim-clang-format'
 
 Plug 'neoclide/coc.nvim', {'branch': 'release'}
 
@@ -90,6 +91,11 @@ call plug#end()
 " =============================================================================
 
 let mapleader = "`"
+
+" c++ syntax highlighting
+let g:cpp_class_scope_highlight = 1
+let g:cpp_member_variable_highlight = 1
+let g:cpp_class_decl_highlight = 1
 
 " In ~/.vim/ftplugin/javascript.vim, or somewhere similar.
 
@@ -168,6 +174,8 @@ nmap <F2> <Plug>(coc-rename)
 xmap <leader>f  <Plug>(coc-format-selected)
 nmap <leader>f  <Plug>(coc-format-selected)
 
+
+command! -nargs=0 FOR   :call  ClangFormat()
 augroup mygroup
   autocmd!
   " Setup formatexpr specified filetype(s).

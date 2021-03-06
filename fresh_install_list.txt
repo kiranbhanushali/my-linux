@@ -1,0 +1,70 @@
+# install base-devel
+
+sudo pacman -S base-devel
+
+# mirror update 
+
+sudo pacman-mirrors -g
+
+
+# update and upgrade 
+sudo pacman -Syu
+sudo pacman -Syyu
+
+# some others to install 
+
+zsh 
+fish
+
+
+
+# use full apps from arch package manager  ( using git ) 
+
+google-chrome
+mpv-full
+imagewriter
+twmn-git
+
+
+
+# direcly avalibe from community or extras
+
+gvim 
+npm
+xmoand
+xmoand-contrib
+libreoffice-fresh
+gimp
+vlc
+qemu python python-pip python-wheel 
+timeshift
+kmousetool 
+kolourpaint xournalpp drawing 
+compton
+dmenu rophi nitrogen
+zenity
+xmobar
+xdotool
+alacritty
+stalonetray
+
+
+
+# installing snap 
+git clone https://aur.archlinux.org/snapd.git
+cd snapd
+makepkg -si
+mp
+sudo systemctl enable --now snapd.socket
+sudo ln -s /var/lib/snapd/snap /snap
+
+
+# snap packages ( using sudo snap install ) 
+
+simplenote
+postman
+netbeans --classic
+code-insiders --classic
+mysql-shell
+
+     
