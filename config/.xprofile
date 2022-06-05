@@ -1,0 +1,117 @@
+#!/bin/bash
+# .xprofile
+
+function run {
+  if ! pgrep $1 ;
+  then
+    $@&
+  fi
+}
+
+# use this in lieu of .xinitrc as .xinitrc won't be sourced if using
+# a display manager, while this should.
+#
+# note that other key startup items are run via bin/wm/init-tilingwm
+
+
+#xrdb -DSOLARIZED_DARK -load ~/.Xresources
+
+
+# ----------------------------------------------------------------------
+# CapsLock as CTRL
+#setxkbmap -option ctrl:nocaps
+
+# ----------------------------------------------------------------------
+# Currently using tab as both tab key and a modifier. Works well though
+# I need to switch away from using Xmodmap. Use xkb (via localectl) seems
+# like a better idea.
+
+# make tab a hyper and set hyper as mod1
+#[[ -f ~/.Xmodmap ]] && xmodmap ~/.Xmodmap
+
+# xcape depends on .Xmodmap being set correctly (TODO: switch to xkb)
+# this lets the (now hyper_L) tab key act normally unless used as a
+# modifier
+
+#xcape -e "Hyper_L=Tab;Hyper_R=backslash"
+
+#XKBDIR=$HOME/.xkb
+#xkbcomp -w3 -I$XKBDIR $XKBDIR/keymap/custom $DISPLAY
+#xcape -e "Hyper_L=Tab;Hyper_R=backslash"
+
+
+# ----------------------------------------------------------------------
+# run xsettingsd in lieu of gnome-settings-daemon
+# this helps pass certain values to gtk programs (fonts, for example)
+# cf https://github.com/derat/xsettingsd/wiki/Installation
+# TODO: wiki mentions using .xsession .. should i be using that instead
+# of .xprofile? just move into my init file? make a new .shell like
+# config file or folder?
+
+#/usr/bin/xsettingsd &
+
+# ----------------------------------------------------------------------
+# resolution & display 
+
+#xrandr --setprovideroutputsource modesetting NVIDIA-0
+#xrandr --dpi 96
+
+# Calling 'displayctl' without arguments is the same as calling it with
+# 'auto'. This will scan the current set of connected displays, check to
+# see if I have a preferred configuration via automatically recorded
+# connection data, and if so will apply either that value or a default
+# based on state of connected external displays.
+
+# x is crashing on startup due to displayctl!!!
+#$HOME/bin/wm/displayctl
+#
+
+if [ -d /etc/X11/xinit/xinitrc.d ] ; then
+ for f in /etc/X11/xinit/xinitrc.d/?*.sh ; do
+  [ -x "$f" ] && . "$f"
+ done
+ unset f
+fi
+
+
+export LC_ALL="en_US.UTF-8"
+
+#cursor active at boot
+xsetroot -cursor_name left_ptr &
+
+numlockx on &
+
+nm-applet &
+
+# append notification to the file 
+dunst -print >> notification.txt & 
+
+kdeconnect-app &
+
+stalonetray & 
+
+volumeicon & 
+
+xfce4-power-manager-settings &
+
+klipper & 
+
+xfce4-power-manager &
+
+feh --no-fehbg --bg-fill --randomize /home/kiran/Pictures/Wallpapers/* & 
+
+/home/kiran/bin/picom-toggle.sh  & 
+
+
+#redshift & 
+
+# effects 
+picom --config $HOME/.xmonad/scripts/picom.conf &
+
+#policy manager 
+/usr/lib/polkit-gnome/polkit-gnome-authentication-agent-1 &
+
+xfce4-clipman  & 
+
+# break timer 
+#/home/kiran/Applications/BreakTimer/breaktimer & 

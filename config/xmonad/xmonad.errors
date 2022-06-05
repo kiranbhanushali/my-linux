@@ -1,0 +1,23 @@
+
+xmonad.hs:337:20: warning: [-Wdeprecations]
+    In the use of `defaultConfig'
+    (imported from XMonad, but defined in XMonad.Config):
+    Deprecated: "Use def (from Data.Default, and re-exported by XMonad and XMonad.Config) instead."
+    |
+337 |       [ manageHook defaultConfig],
+    |                    ^^^^^^^^^^^^^
+
+xmonad.hs:384:43: warning: [-Wdeprecations]
+    In the use of `spacing' (imported from XMonad.Layout.Spacing):
+    Deprecated: "Use spacingRaw instead."
+    |
+384 | addSpace     = renamed [CutWordsLeft 2] . spacing gap
+    |                                           ^^^^^^^
+
+xmonad.hs:590:27: warning: [-Wdeprecations]
+    In the use of `tryMessage_'
+    (imported from XMonad.Actions.MessageFeedback):
+    Deprecated: "Use tryMessageWithNoRefreshToCurrent instead."
+    |
+590 | tryMsgR x y = sequence_ [(tryMessage_ x y), refresh]
+    |                           ^^^^^^^^^^^

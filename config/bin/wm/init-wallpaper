@@ -1,0 +1,9 @@
+#!/bin/sh
+
+
+while [ 1 ] ; do
+    exec wall = "$(find ~/Pictures/Wallpapers -type f | shuf -n1)"
+
+    feh --bg-fill $wall & 
+    sleep 20000
+done
